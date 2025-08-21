@@ -127,10 +127,10 @@ public static class TinyCallEndpoints
         async (Guid tenantId, string tableName, long id, JsonObject updatedRecord, IDbConnection db) =>
         {
             var safeTableName = $"{tenantId}_{tableName.Replace(";", "")}";
-            
+
             // Build the "SET" part of the SQL statement
             var setClauses = updatedRecord.Select(kvp => $"`{kvp.Key}` = @{kvp.Key}");
-            
+
             var sql = $"UPDATE `{safeTableName}` SET {string.Join(", ", setClauses)} WHERE Id = @Id;";
 
             // Create Dapper parameters, including the Id from the route
@@ -154,6 +154,21 @@ public static class TinyCallEndpoints
 
             // If ExecuteAsync returns 0, no rows were updated (likely a non-existent ID).
             return affectedRows > 0 ? Results.Ok("Record updated successfully.") : Results.NotFound();
+        });
+        
+
+
+        // NEW: Add an endpoint to delete a record by its ID.
+        callGroup.MapDelete("/{tenantId:guid}/{tableName}/{id:long}",
+        async (Guid tenantId, string tableName, long id, IDbConnection db) =>
+        {
+            var safeTableName = $"{tenantId}_{tableName.Replace(";", "")}";
+            var sql = $"DELETE FROM `{safeTableName}` WHERE Id = @Id;";
+
+            Console.WriteLine($"[CALL] Executing SQL: {sql}");
+            var affectedRows = await db.ExecuteAsync(sql, new { Id = id });
+
+            return affectedRows > 0 ? Results.Ok("Record deleted successfully.") : Results.NotFound();
         });
 
 

@@ -1,12 +1,9 @@
 // In src/main.ts
-import { TinyHindClient } from '../tinylib/tinyhind-client.ts';
-import { DbSchema, Query } from '../tinylib/api-types.ts';
+import { TinyHindClient } from '../../tinylib/tinyhind-client.ts';
+import { DbSchema, Query } from '../../tinylib/api-types.ts';
+import { API_BASE_URL, TENANT_ID } from '../../config.ts';
 
-// --- Configuration ---
-const API_BASE_URL = 'http://localhost:5087';
-const TENANT_ID = 'd95cc89b-e287-47d0-996a-508df06d520f';
-const outputElement = document.getElementById('output')!;
-
+const outputElement = document.getElementById('output') as HTMLDivElement;
 // --- Main Test Runner ---
 async function runTests() {
     outputElement.textContent = `Using static Tenant ID: ${TENANT_ID}\n\n`;

@@ -2,6 +2,7 @@
 .DS_Store
 *.user
 *.suo
+context.md
 
 # IDE
 .vscode/

@@ -6,7 +6,7 @@ export class TinyHindClient {
     private readonly tenantId: string;
 
     // Make baseUrl optional and default to an empty string (for relative paths)
-    constructor(tenantId: string, baseUrl: string = '') {
+    constructor(baseUrl: string = '', tenantId: string) {
         this.baseUrl = baseUrl;
         this.tenantId = tenantId;
     }
@@ -51,6 +51,16 @@ export class TinyHindClient {
         });
         if (!response.ok) {
             throw new Error(`[Update Record] Server responded with ${response.status}`);
+        }
+        return response.text();
+    }
+
+    async deleteRecord<T extends keyof DbSchema>(tableName: T, id: number): Promise<string> {
+        const response = await fetch(`${this.baseUrl}/call/${this.tenantId}/${tableName}/${id}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) {
+            throw new Error(`[Delete Record] Server responded with ${response.status}`);
         }
         return response.text();
     }
