@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    /* Tells TypeScript to compile to modern JavaScript */
+    "target": "ES2022",
+    "module": "ESNext",
+
+    /* Where to find your source TypeScript files */
+    "rootDir": "./src",
+
+    /* Where to put the compiled JavaScript files */
+    "outDir": "./dist",
+
+    /* Strictness and quality settings */
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  /* Tells the compiler which files to include */
+  "include": ["src"]
+}

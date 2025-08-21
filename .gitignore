@@ -1,0 +1,22 @@
+# General
+.DS_Store
+*.user
+*.suo
+
+# IDE
+.vscode/
+.idea/
+
+# Backend (.NET)
+/backend/bin/
+/backend/obj/
+/backend/tinyhind.db
+
+# Frontend
+/frontend/node_modules/
+/frontend/serve/
+
+# Tooling
+/tools/__pycache__/
+/tools/esbuild.exe
+/tools/tinyconf.json
