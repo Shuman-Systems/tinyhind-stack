@@ -1,6 +1,6 @@
 // In src/main.ts
-import { TinyHindClient } from './tinyhind-client';
-import { DbSchema, Query } from './api-types';
+import { TinyHindClient } from '../tinylib/tinyhind-client.ts';
+import { DbSchema, Query } from '../tinylib/api-types.ts';
 
 // --- Configuration ---
 const API_BASE_URL = 'http://localhost:5087';

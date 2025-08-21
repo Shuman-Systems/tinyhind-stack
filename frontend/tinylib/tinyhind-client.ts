@@ -5,7 +5,8 @@ export class TinyHindClient {
     private readonly baseUrl: string;
     private readonly tenantId: string;
 
-    constructor(baseUrl: string, tenantId: string) {
+    // Make baseUrl optional and default to an empty string (for relative paths)
+    constructor(tenantId: string, baseUrl: string = '') {
         this.baseUrl = baseUrl;
         this.tenantId = tenantId;
     }
