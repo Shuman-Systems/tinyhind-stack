@@ -1,19 +1,21 @@
-// In src/main.ts
 import { TinyHindClient } from '../../tinylib/tinyhind-client.ts';
 import { DbSchema, Query } from '../../tinylib/api-types.ts';
 import { API_BASE_URL, TENANT_ID } from '../../config.ts';
 
 const outputElement = document.getElementById('output') as HTMLDivElement;
+const runTestsBtn = document.getElementById('run-tests-btn') as HTMLButtonElement;
+const tiny = new TinyHindClient(API_BASE_URL, TENANT_ID);
+
 // --- Main Test Runner ---
 async function runTests() {
-    outputElement.textContent = `Using static Tenant ID: ${TENANT_ID}\n\n`;
-    
-    // Create an instance of our new client
-    const tiny = new TinyHindClient(API_BASE_URL, TENANT_ID);
+    // Clear previous results and show loading state
+    outputElement.textContent = `Using static Tenant ID: ${TENANT_ID}\n\nRunning tests...\n`;
+    runTestsBtn.disabled = true;
+    runTestsBtn.textContent = 'Running...';
 
     try {
         // --- Test 1: Register a 'Users' table ---
-        outputElement.textContent += "Step 1: Registering 'Users' table...\n";
+        outputElement.textContent += "\nStep 1: Registering 'Users' table...\n";
         const userSchema = {
             properties: {
                 name: { type: 'string' },
@@ -64,7 +66,17 @@ async function runTests() {
 
     } catch (error: any) {
         outputElement.textContent += `\n--- ERROR ---\n${error.message}\n\n`;
+    } finally {
+        // Re-enable the button when tests are done
+        runTestsBtn.disabled = false;
+        runTestsBtn.textContent = 'Run All Tests';
     }
 }
 
-runTests();
+// --- Initial setup ---
+function initialize() {
+    outputElement.textContent = 'Ready to run tests. Click the button to start.';
+    runTestsBtn.onclick = runTests;
+}
+
+initialize();

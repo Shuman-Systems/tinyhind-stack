@@ -11,7 +11,7 @@ public static class TinyRuneEndpoints
         var runeGroup = app.MapGroup("/rune");
 
         runeGroup.MapPost("/{tenantId:guid}/register/{tableName}",
-            async (Guid tenantId, string tableName, JsonObject schemaBody, IDbConnection db) =>
+        async (Guid tenantId, string tableName, JsonObject schemaBody, IDbConnection db) =>
         {
             // Sanitize table name to prevent SQL injection in table names
             var safeTableName = $"{tenantId}_{tableName.Replace(";", "")}";
@@ -43,6 +43,25 @@ public static class TinyRuneEndpoints
             await db.ExecuteAsync(createTableSql);
 
             return Results.Ok($"Table '{safeTableName}' created successfully in the database!");
+        });
+
+        runeGroup.MapGet("/{tenantId:guid}/schemas",
+        async (Guid tenantId, IDbConnection db) =>
+        {
+            var tables = await db.QueryAsync<string>(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE @prefix;",
+                new { prefix = $"{tenantId}_%" });
+
+            var allSchemas = new Dictionary<string, List<dynamic>>();
+            foreach (var fullTableName in tables)
+            {
+                // Remove the tenantId prefix for a clean name in the UI
+                var cleanTableName = fullTableName.Replace($"{tenantId}_", "");
+                var columns = await db.QueryAsync($"PRAGMA table_info('{fullTableName}');");
+                allSchemas[cleanTableName] = columns.AsList();
+            }
+
+            return Results.Ok(allSchemas);
         });
 
 

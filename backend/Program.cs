@@ -1,3 +1,5 @@
+
+
 using System.Data;
 using Microsoft.Data.Sqlite;
 
@@ -14,6 +16,11 @@ var builderOptions = new WebApplicationOptions
 };
 
 var builder = WebApplication.CreateBuilder(builderOptions);
+
+
+builder.Services.AddRazorComponents(); // <-- ADD THIS
+builder.Services.AddScoped<ComponentRenderer>(); // <-- ADD THIS
+
 
 // --- Add services ---
 builder.Services.AddScoped<IDbConnection>(sp => 
@@ -48,6 +55,8 @@ else
 
 app.MapRuneEndpoints();
 app.MapCallEndpoints();
+app.MapPageEndpoints();
+
 
 if (hostingMode == "Unified")
 {

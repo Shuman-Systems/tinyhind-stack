@@ -20,4 +20,5 @@ context.md
 # Tooling
 /tools/__pycache__/
 /tools/esbuild.exe
+/tools/tailwind.exe
 /tools/tinyconf.json

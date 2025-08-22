@@ -3,15 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <title>TinyHind Test Runner</title>
-    <style>
-        body { font-family: monospace; background-color: #1e1e1e; color: #d4d4d4; }
-        pre { white-space: pre-wrap; word-wrap: break-word; }
-    </style>
 </head>
-<body>
-    <h1>TinyHind Stack - Test Runner</h1>
-    <pre id="output">Starting tests...</pre>
-    <script src="../js/tinyhind-client.js"></script>
-    <script src="tinyhind.js"></script>
+<body class="bg-slate-900 text-slate-200 font-sans p-4 sm:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-cyan-400">TinyHind Test Runner</h1>
+            <a href="/" class="text-cyan-400 hover:text-cyan-300 transition-colors">&larr; Go to Home</a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="md:col-span-2 bg-slate-800 p-6 rounded-lg shadow-xl border border-slate-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-slate-300">Test Output</h2>
+                    <button id="run-tests-btn" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded transition-colors">
+                        Run All Tests
+                    </button>
+                </div>
+                <pre id="output" class="bg-black p-4 rounded-md text-sm font-mono overflow-x-auto h-96"></pre>
+            </div>
+
+            <div class="md:col-span-1 bg-slate-800 p-6 rounded-lg shadow-xl border border-slate-700">
+                <h2 class="text-2xl font-semibold mb-4 text-slate-300">Tools</h2>
+                <div class="space-y-3">
+                    <a href="/tinyhind/schema/schema.html" class="block w-full text-left p-3 bg-slate-700 hover:bg-slate-600 rounded transition-colors">
+                        Schema Explorer &rarr;
+                    </a>
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="tinyhind.js" type="module"></script>
 </body>
 </html>

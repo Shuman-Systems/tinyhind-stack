@@ -1,145 +1,133 @@
-// In src/users.ts
-//import { TinyHindClient } from '../../tinylib/tinyhind-client.ts';
-//import { DbSchema, Query } from '../../tinylib/api-types.ts';
-//import { TENANT_ID } from '../../config.ts';
+import { TinyHindClient } from '../../tinylib/tinyhind-client.ts';
+import { DbSchema, Query } from '../../tinylib/api-types.ts';
+import { TENANT_ID } from '../../config.ts';
 
-const appRoot = document.getElementById('app-root') as HTMLDivElement;
+import { bind } from '../../tinylib/bind.ts';
+
+
+// --- Get DOM Elements ---
+const userTbody = document.getElementById('users-tbody') as HTMLTableSectionElement;
+const userForm = document.getElementById('user-form') as HTMLFormElement;
+const cancelBtn = document.getElementById('cancel-btn') as HTMLButtonElement;
+
+// --- Initialize TinyHind Client ---
 const tiny = new TinyHindClient('', TENANT_ID);
 
-// --- State Management ---
-let users: DbSchema['Users'][] = [];
-let editingUser: Partial<DbSchema['Users']> | null = null;
 
-// --- Function to fetch and render all users ---
-async function fetchAndRenderUsers() {
-    appRoot.innerHTML = '<h2>Loading Users...</h2>';
+// --- STATE MANAGEMENT ---
+const state = bind.all(userForm, {
+    users: [] as DbSchema['Users'][],
+    isEditing: false,
+    name: '',
+    email: '',
+    age: '',
+    formTitle: 'Add New User',
+    submitButtonText: 'Add User',
+    editingId: null as number | null
+});
+
+// --- RENDER FUNCTIONS ---
+function renderTableBody(users: DbSchema['Users'][]) {
+    if (!userTbody) return;
+    if (users.length === 0) {
+        userTbody.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-slate-500">No users found.</td></tr>';
+        return;
+    }
+    userTbody.innerHTML = users.map(user => `
+            <tr class="hover:bg-slate-700/50">
+                <td class="p-3 text-slate-400">${user.Id}</td>
+                <td class="p-3">${user.name}</td>
+                <td class="p-3">${user.email}</td>
+                <td class="p-3">${user.age}</td>
+                <td class="p-3">
+                    <button data-id="${user.Id}" class="edit-btn bg-blue-600 hover:bg-blue-500 text-white py-1 px-3 rounded text-sm transition-colors">Edit</button>
+                    <button data-id="${user.Id}" class="delete-btn bg-red-600 hover:bg-red-500 text-white py-1 px-3 rounded text-sm transition-colors ml-2">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+}
+
+// --- DATA & EVENT HANDLING ---
+async function fetchUsers() {
     try {
         const userQuery: Query<'Users'> = { from: 'Users' };
-        users = await tiny.queryRecords(userQuery);
-        renderUserList();
+        state.users = await tiny.queryRecords(userQuery);
     } catch (error) {
-        appRoot.innerHTML = '<h2>Error loading users.</h2>';
         console.error(error);
+        userTbody.innerHTML = '<tr><td colspan="5" class="p-3 text-center text-red-500">Error loading users.</td></tr>';
     }
 }
 
-// --- Render Functions ---
-function renderUserList() {
-    appRoot.innerHTML = `
-        <h2>All Users</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Age</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${users.map(user => `
-                    <tr>
-                        <td>${user.Id}</td>
-                        <td>${user.name}</td>
-                        <td>${user.email}</td>
-                        <td>${user.age}</td>
-                        <td>
-                            <button onclick="handleEditClick(${user.Id})">Edit</button>
-                            <button onclick="handleDeleteClick(${user.Id})">Delete</button>
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-        <hr/>
-        ${renderForm()}
-    `;
-    // Add event listeners for the form after it's rendered
-    const form = document.getElementById('user-form') as HTMLFormElement;
-    form.onsubmit = handleFormSubmit;
+function resetForm() {
+    state.isEditing = false;
+    state.editingId = null;
+    state.name = '';
+    state.email = '';
+    state.age = '';
+    state.formTitle = 'Add New User';
+    state.submitButtonText = 'Add User';
+    cancelBtn.classList.add('hidden');
 }
 
-function renderForm() {
-    const isEditing = editingUser !== null;
-    return `
-        <h2>${isEditing ? 'Edit User' : 'Add New User'}</h2>
-        <form id="user-form">
-            <input type="hidden" id="userId" value="${isEditing ? editingUser!.Id : ''}">
-            <label for="name">Name:</label>
-            <input type="text" id="name" value="${isEditing ? editingUser!.name : ''}" required>
-            <br/><br/>
-            <label for="email">Email:</label>
-            <input type="email" id="email" value="${isEditing ? editingUser!.email : ''}" required>
-            <br/><br/>
-            <label for="age">Age:</label>
-            <input type="number" id="age" value="${isEditing && editingUser!.age !== undefined ? editingUser!.age : ''}">
-            <br/><br/>
-            <button type="submit">${isEditing ? 'Update User' : 'Add User'}</button>
-            ${isEditing ? '<button type="button" onclick="cancelEdit()">Cancel</button>' : ''}
-        </form>
-    `;
-}
-
-// --- Event Handlers ---
 async function handleFormSubmit(event: Event) {
     event.preventDefault();
-    const nameInput = document.getElementById('name') as HTMLInputElement;
-    const emailInput = document.getElementById('email') as HTMLInputElement;
-    const ageInput = document.getElementById('age') as HTMLInputElement;
-    const userIdInput = document.getElementById('userId') as HTMLInputElement;
-    
-    const id = userIdInput.value ? parseInt(userIdInput.value) : null;
-    const newUser = {
-        name: nameInput.value,
-        email: emailInput.value,
-        age: ageInput.value ? parseInt(ageInput.value) : undefined
+    const payload: Partial<DbSchema['Users']> = {
+        name: state.name,
+        email: state.email,
+        age: state.age ? parseInt(state.age) : undefined
     };
 
     try {
-        if (id) {
-            // Update an existing user
-            await tiny.updateRecord('Users', id, newUser);
-            console.log(`User ${id} updated.`);
+        if (state.isEditing && state.editingId) {
+            await tiny.updateRecord('Users', state.editingId, payload);
         } else {
-            // Insert a new user
-            await tiny.insertRecord('Users', newUser);
-            console.log("New user added.");
+            await tiny.insertRecord('Users', payload);
         }
-        editingUser = null; // Reset form
-        await fetchAndRenderUsers();
+        resetForm();
+        await fetchUsers();
     } catch (error) {
         console.error("Failed to submit form:", error);
     }
 }
 
-function handleEditClick(id: number) {
-    editingUser = users.find(u => u.Id === id) || null;
-    renderUserList();
-}
+// --- EVENT LISTENERS ---
+document.addEventListener('click', async (event) => {
+    const target = event.target as HTMLElement;
 
-function cancelEdit() {
-    editingUser = null;
-    renderUserList();
-}
-
-async function handleDeleteClick(id: number) {
-    if (confirm(`Are you sure you want to delete user with ID ${id}?`)) {
-        try {
-            await tiny.deleteRecord('Users', id); // We will need to create this method
-            console.log(`User ${id} deleted.`);
-            await fetchAndRenderUsers();
-        } catch (error) {
-            console.error("Failed to delete user:", error);
+    if (target.matches('.edit-btn')) {
+        const id = parseInt(target.dataset.id!);
+        const userToEdit = state.users.find((u: DbSchema['Users']) => u.Id === id);
+        if (userToEdit) {
+            state.isEditing = true;
+            state.editingId = userToEdit.Id;
+            state.name = userToEdit.name;
+            state.email = userToEdit.email;
+            state.age = userToEdit.age;
+            state.formTitle = `Editing User #${userToEdit.Id}`;
+            state.submitButtonText = 'Update User';
+            cancelBtn.classList.remove('hidden');
         }
     }
-}
 
-// --- Expose functions to the global scope for event handlers ---
-// This is a simple way to make the button clicks work from the rendered HTML
-(window as any).handleEditClick = handleEditClick;
-(window as any).handleDeleteClick = handleDeleteClick;
-(window as any).cancelEdit = cancelEdit;
+    if (target.matches('.delete-btn')) {
+        const id = parseInt(target.dataset.id!);
+        if (confirm(`Are you sure you want to delete user with ID ${id}?`)) {
+            try {
+                await tiny.deleteRecord('Users', id);
+                resetForm();
+                await fetchUsers();
+            } catch (error) {
+                console.error("Failed to submit form:", error);
+            }
+            await fetchUsers();
+        }
+    }
+});
 
-// --- Initial call to populate the list ---
-fetchAndRenderUsers();
+userForm.onsubmit = handleFormSubmit;
+cancelBtn.onclick = resetForm;
+
+// --- INITIALIZE ---
+bind.on('users', (users) => renderTableBody(users));
+fetchUsers();
+

@@ -3,6 +3,7 @@ using System.Data;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+
 using Dapper;
 
 public static class TinyCallEndpoints
@@ -44,7 +45,6 @@ public static class TinyCallEndpoints
 
             return Results.Created($"/{tableName}/{newId}", new { id = newId });
         });
-
 
 
 

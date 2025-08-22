@@ -25,4 +25,12 @@ export interface DbSchema {
     email: string;
     age: number;
   };
+  Items: {
+    Id: number;
+    Name: string;
+    Weight: number;
+    Stock: number;
+    Price: number;
+    Active: number;
+  };
 }

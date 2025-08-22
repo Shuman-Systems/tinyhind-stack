@@ -10,6 +10,7 @@ import functools
 import subprocess
 from urllib.request import urlopen, Request
 from urllib.error import URLError
+import time
 
 # --- Path Configuration ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -26,6 +27,7 @@ TINYLIB_DIR = os.path.join(FRONTEND_DIR, 'tinylib')
 SERVE_DIR = os.path.join(PROJECT_ROOT, 'serve') # Build output for separate mode
 WWW_ROOT_DIR = os.path.join(BACKEND_DIR, 'wwwroot') # Build output for unified mode
 ESBUILD_EXE = os.path.join(SCRIPT_DIR, 'esbuild.exe')
+TAILWIND_EXE = os.path.join(SCRIPT_DIR, 'tailwind.exe') 
 VERSION = 'v0.1.0'
 
 # --- Colors for CLI Output ---
@@ -155,105 +157,110 @@ def pull_schema(config):
 
 
 def build_project(config, minify=False):
-    """Compiles the TS project by scanning the 'pages' directory and other root files."""
+    """Compiles CSS with Tailwind and TS with esbuild."""
     hosting_mode = config.get('hosting_mode', 'separate')
     output_dir = WWW_ROOT_DIR if hosting_mode == 'unified' else SERVE_DIR
-    base_url = "" if hosting_mode == 'unified' else config.get('backend_url', '')
-    tenant_id = config.get('tenant_id')
     build_mode = "Production (minified)" if minify else "Development (readable)"
     print(f"Building project for {build_mode} into '{output_dir}'...")
+    build_id = str(int(time.time())) # <-- ADD THIS LINE
 
-    if not os.path.exists(ESBUILD_EXE):
-        print(f"{Colors.FAIL}\n--- BUILD FAILED ---\n'{os.path.basename(ESBUILD_EXE)}' not found in tools/ folder.\n{Colors.ENDC}")
+    # --- Pre-flight checks for executables and source files ---
+    if not os.path.exists(ESBUILD_EXE) or not os.path.exists(TAILWIND_EXE):
+        print(f"{Colors.FAIL}\n--- BUILD FAILED ---\n'esbuild.exe' or 'tailwind.exe' not found in tools/ folder.\n{Colors.ENDC}")
         return
-        
-    if not os.path.exists(PAGES_DIR):
-        print(f"{Colors.FAIL}\n--- BUILD FAILED ---\nPages directory not found at '{PAGES_DIR}'.\n{Colors.ENDC}")
+    source_css_path = os.path.join(FRONTEND_DIR, 'input.css')
+    if not os.path.exists(source_css_path):
+        print(f"{Colors.FAIL}\n--- BUILD FAILED ---\nSource CSS not found at '{source_css_path}'.\n{Colors.ENDC}")
         return
 
-    # Create/overwrite the config.ts file at the start of the build.
+    # --- Step 1: Run Tailwind CSS build ---
+    print("  - Building CSS with Tailwind...")
+    output_css_dir = os.path.join(output_dir, 'css')
+    os.makedirs(output_css_dir, exist_ok=True)
+    output_css_path = os.path.join(output_css_dir, 'main.css')
+    tailwind_config_path = os.path.join(PROJECT_ROOT, 'tailwind.config.js')
+    
+    tailwind_command = [
+        TAILWIND_EXE,
+        '-c', tailwind_config_path,
+        '-i', source_css_path,
+        '-o', output_css_path,
+        '--verbose'
+    ]
+    if minify:
+        tailwind_command.append('--minify')
+
+
+    # ... inside build_project ...
+    tailwind_result = subprocess.run(tailwind_command, shell=True, capture_output=True, text=True, encoding='utf-8', cwd=PROJECT_ROOT)
+    if tailwind_result.returncode != 0:
+        print(f"{Colors.FAIL}\n--- TAILWIND BUILD FAILED ---\n{Colors.ENDC}")
+        print(f"{Colors.FAIL}{tailwind_result.stderr}{Colors.ENDC}")
+        return
+    print(f"  - CSS generated at '{output_css_path}'")
+
+    # --- Step 2: Generate config.ts for TypeScript ---
+    base_url = "" if hosting_mode == 'unified' else config.get('backend_url', '')
+    tenant_id = config.get('tenant_id')
     config_ts_path = os.path.join(FRONTEND_DIR, 'config.ts')
     print(f"  - Generating config.ts for '{hosting_mode}' mode...")
     with open(config_ts_path, 'w') as f:
         f.write(f"export const API_BASE_URL = '{base_url}';\n")
         f.write(f"export const TENANT_ID = '{tenant_id}';\n")
-    
-    build_errors = []
-    
-    # 1. First, process the "root" files (e.g., tinyhind-client.ts and index.ts) and place them in a central /js folder.
-    print(f"  - Building root-level and library files to '{os.path.join(output_dir, 'js')}'...")
-    os.makedirs(os.path.join(output_dir, 'js'), exist_ok=True)
-    
-    root_files_to_process = [
-        os.path.join(FRONTEND_DIR, f) for f in os.listdir(FRONTEND_DIR) if f.endswith('.ts') and not os.path.isdir(os.path.join(FRONTEND_DIR, f))
-    ]
-    root_files_to_process.extend([
-        os.path.join(FRONTEND_DIR, 'tinylib', f) for f in os.listdir(os.path.join(FRONTEND_DIR, 'tinylib')) if f.endswith('.ts')
-    ])
 
-    for ts_path in root_files_to_process:
-        js_name = os.path.basename(ts_path).replace('.ts', '.js')
-        output_js_path = os.path.join(output_dir, 'js', js_name)
-
-        command = f"{ESBUILD_EXE} {ts_path} --bundle --outfile={output_js_path}"
-        if minify:
-            command += " --minify"
-        
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, encoding='utf-8', cwd=FRONTEND_DIR)
-        if result.returncode != 0:
-            build_errors.append(f"Failed to compile '{ts_path}':\n{result.stderr}")
-    
-    # 2. Process and compile HTML/TS pairs from the 'pages' directory.
-    print(f"  - Building page files from '{PAGES_DIR}'...")
+    # --- Step 3: Discover TypeScript entry points and copy HTML ---
+    entry_points = []
+    # (The rest of this function remains unchanged from the previous version)
+    print("  - Scanning for pages and copying HTML...")
     for root, _, files in os.walk(PAGES_DIR):
-        relative_path = os.path.relpath(root, PAGES_DIR)
-
         for file in files:
             if file.endswith('.html'):
-                html_name = os.path.splitext(file)[0]
-                ts_name = html_name + '.ts'
-                
                 html_path = os.path.join(root, file)
-                ts_path = os.path.join(root, ts_name)
-                output_html_path = os.path.join(output_dir, relative_path, file)
-                
-                # Ensure the HTML output directory exists
+                ts_equivalent = html_path.replace('.html', '.ts')
+                output_html_path = os.path.join(output_dir, os.path.relpath(html_path, PAGES_DIR))
                 os.makedirs(os.path.dirname(output_html_path), exist_ok=True)
+                with open(html_path, 'r') as f_in:
+                    html_content = f_in.read()
+                    
+                    css_link_tag = f'    <link rel="stylesheet" href="/css/main.css?v={build_id}">\n'
+                    html_content = html_content.replace('</head>', f'{css_link_tag}</head>')
+                if os.path.exists(ts_equivalent):
+                    entry_points.append(ts_equivalent)
+                    ts_filename = os.path.basename(ts_equivalent)
+                    js_filename = ts_filename.replace('.ts', '.js')
+                    html_content = html_content.replace(
+                        f'src="{ts_filename}"',
+                        f'src="{js_filename}?v={build_id}"'
+                    ).replace(
+                        f'src="./{ts_filename}"',
+                        f'src="{js_filename}?v={build_id}"'
+                    )
+                with open(output_html_path, 'w') as f_out:
+                    f_out.write(html_content)
+    if not entry_points:
+        print(f"{Colors.WARNING}No TypeScript entry points found to build.{Colors.ENDC}")
+        print(f"{Colors.OKGREEN}\nSUCCESS: HTML files copied and CSS built.\n{Colors.ENDC}")
+        return
 
-                if not os.path.exists(ts_path):
-                    print(f"{Colors.WARNING}  - Skipping '{html_path}': No corresponding '{ts_name}' found.{Colors.ENDC}")
-                    # Copy HTML anyway, in case it's a static file without TS.
-                    shutil.copyfile(html_path, output_html_path)
-                    continue
-
-                print(f"  - Processing Page: '{os.path.join(relative_path, html_name)}'")
-
-                # 1. Copy and modify HTML
-                with open(html_path, 'r') as f:
-                    html_content = f.read()
-                
-                # Simple replacement logic, assuming script tag is like <script src="somefile.ts"></script>
-                new_script_path = f'{html_name}.js'
-                html_content = html_content.replace(f'src="{ts_name}"', f'src="{new_script_path}"')
-                with open(output_html_path, 'w') as f:
-                    f.write(html_content)
-
-                # 2. Compile TypeScript using esbuild
-                output_js_path = os.path.join(os.path.dirname(output_html_path), f'{html_name}.js')
-                command = f"{ESBUILD_EXE} {ts_path} --bundle --outfile={output_js_path}"
-                if minify:
-                    command += " --minify"
-                
-                result = subprocess.run(command, shell=True, capture_output=True, text=True, encoding='utf-8', cwd=FRONTEND_DIR)
-                if result.returncode != 0:
-                    build_errors.append(f"Failed to compile '{ts_path}':\n{result.stderr}")
-
-    if not build_errors:
+    # --- Step 4: Run esbuild with all entry points ---
+    print(f"  - Compiling {len(entry_points)} TypeScript entry points with code splitting...")
+    command = [ESBUILD_EXE] + entry_points + [
+        f"--outdir={output_dir}",
+        "--bundle",
+        "--splitting",
+        "--format=esm",
+        '--chunk-names=js/[name]-[hash]'
+    ]
+    if minify:
+        command.append("--minify")
+    result = subprocess.run(command, shell=True, capture_output=True, text=True, encoding='utf-8', cwd=FRONTEND_DIR)
+    if result.returncode == 0:
         print(f"{Colors.OKGREEN}\nSUCCESS: Project built successfully ({build_mode}).\n{Colors.ENDC}")
+        if result.stderr:
+            print(result.stderr)
     else:
-        print(f"{Colors.FAIL}\n--- BUILD FAILED WITH {len(build_errors)} ERROR(S) ---\n{Colors.ENDC}")
-        for error in build_errors:
-            print(f"{Colors.FAIL}{error}{Colors.ENDC}")
+        print(f"{Colors.FAIL}\n--- ESBUILD FAILED ---\n{Colors.ENDC}")
+        print(f"{Colors.FAIL}{result.stderr}{Colors.ENDC}")
             
             
         

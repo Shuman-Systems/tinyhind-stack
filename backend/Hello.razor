@@ -1,0 +1,12 @@
+
+
+<div class="p-4 bg-slate-600 text-white rounded-lg shadow-lg">
+    <h3>Hello from a Razorz Component!</h3>
+    <p>The current time is: <strong>@DateTime.Now</strong></p>
+    <p>My message is: <strong>@Message</strong></p>
+</div>
+
+@code {
+    [Parameter]
+    public string Message { get; set; } = "No message provided.";
+}

@@ -11,7 +11,8 @@ export class TinyHindClient {
         this.tenantId = tenantId;
     }
 
-    async registerTable(tableName: keyof DbSchema, schema: object): Promise<string> {
+   // async registerTable(tableName: keyof DbSchema, schema: object): Promise<string> {
+    async registerTable(tableName: string, schema: object): Promise<string> {
         const response = await fetch(`${this.baseUrl}/rune/${this.tenantId}/register/${tableName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -38,7 +39,7 @@ export class TinyHindClient {
     async getRecordById<T extends keyof DbSchema>(tableName: T, id: number): Promise<DbSchema[T]> {
         const response = await fetch(`${this.baseUrl}/call/${this.tenantId}/${tableName}/${id}`);
         if (!response.ok) {
-            throw new Error(`[Get Record] Server responded with ${response.status}`);
+            throw new Error(`[Get Record] Server respondedz with ${response.status}`);
         }
         return response.json();
     }
@@ -63,6 +64,15 @@ export class TinyHindClient {
             throw new Error(`[Delete Record] Server responded with ${response.status}`);
         }
         return response.text();
+    }
+
+    
+    async getAllSchemas(): Promise<Record<string, any[]>> {
+        const response = await fetch(`${this.baseUrl}/rune/${this.tenantId}/schemas`);
+        if (!response.ok) {
+            throw new Error(`[Get All Schemas] Server responded with ${response.status}: ${await response.text()}`);
+        }
+        return response.json();
     }
 
     async queryRecords<T extends keyof DbSchema>(queryObject: Query<T>): Promise<DbSchema[T][]> {
